@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Network Traffic Monitor</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE HEADER
+═══════════════════════════════════════════════ -->
+<div class="header">
+    <h1>AI-Based Real-Time Network Traffic Analyzer</h1>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MAIN CONTENT WRAPPER
+═══════════════════════════════════════════════ -->
+<div class="page-wrapper">
+
+    <!-- ─────────────────────────────────────────
+         SECTION 1 — MONITORING CONTROLS
+    ───────────────────────────────────────── -->
+    <div class="card">
+        <div class="card-title">Monitoring Controls</div>
+
+        <div class="controls-row">
+            <!-- Start button -->
+            <button id="btnStart" class="btn btn-start" onclick="startMonitoring()">
+                Start Monitoring
+            </button>
+
+            <!-- Stop button (disabled at first) -->
+            <button id="btnStop" class="btn btn-stop" onclick="stopMonitoring()" disabled>
+                Stop Monitoring
+            </button>
+
+            <!-- Generate AI Data button -->
+            <button id="btnGenerate" class="btn btn-generate" onclick="generateNewData()">
+                Generate New Data
+            </button>
+        </div>
+
+        <!-- Status indicator light + text -->
+        <div id="statusBar" class="status-bar status-stopped">
+            <span class="status-dot"></span>
+            Status: <span id="statusText">Stopped</span>
+        </div>
+    </div>
+
+
+    <!-- ─────────────────────────────────────────
+         SECTION 2 — FILTER FORM
+    ───────────────────────────────────────── -->
+    <div class="card">
+        <div class="card-title">Filter Traffic</div>
+
+        <div class="filter-form">
+
+            <!-- Protocol dropdown -->
+            <div class="form-group">
+                <label for="selProtocol">Protocol</label>
+                <select id="selProtocol">
+                    <option value="">All Protocols</option>
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                    <option value="ICMP">ICMP</option>
+                    <option value="ARP">ARP</option>
+                    <option value="DNS">DNS</option>
+                </select>
+            </div>
+
+            <!-- Source IP input -->
+            <div class="form-group">
+                <label for="inpSrcIP">Source IP</label>
+                <input type="text" id="inpSrcIP"
+                       placeholder="e.g.  192.168.1.5" />
+            </div>
+
+            <!-- Destination IP input -->
+            <div class="form-group">
+                <label for="inpDstIP">Destination IP</label>
+                <input type="text" id="inpDstIP"
+                       placeholder="e.g.  8.8.8.8" />
+            </div>
+
+            <div class="form-group">
+                <label for="inpPort">Port</label>
+                <input type="text" id="inpPort" placeholder="e.g. 80" />
+            </div>
+
+            <div class="form-group">
+                <label for="inpMinSize">Min Packet Size</label>
+                <input type="text" id="inpMinSize" placeholder="e.g. 500" />
+            </div>
+
+            <!-- Buttons -->
+            <div class="form-group form-buttons">
+                <label>&nbsp;</label><!-- blank label keeps alignment -->
+                <div class="btn-pair">
+                    <button class="btn btn-filter" onclick="applyFilter()">
+                        Apply Filter
+                    </button>
+                    <button class="btn btn-reset" onclick="resetFilter()">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- end .filter-form -->
+    </div>
+
+
+    <!-- ─────────────────────────────────────────
+         SECTION 3 — STATISTICS
+    ───────────────────────────────────────── -->
+    <div class="card">
+        <div class="card-title">Statistics</div>
+
+        <!-- Top Row: 4 stats -->
+        <div class="stats-grid stats-grid-top" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="stat-box">
+                <div class="stat-number" id="statTotal">0</div>
+                <div class="stat-label">Total Packets</div>
+            </div>
+            <div class="stat-box tcp">
+                <div class="stat-number" id="statTCP">0</div>
+                <div class="stat-label">TCP Packets</div>
+            </div>
+            <div class="stat-box udp">
+                <div class="stat-number" id="statUDP">0</div>
+                <div class="stat-label">UDP Packets</div>
+            </div>
+            <div class="stat-box icmp">
+                <div class="stat-number" id="statICMP">0</div>
+                <div class="stat-label">ICMP Packets</div>
+            </div>
+        </div>
+
+        <!-- Bottom Row: 4 stats -->
+        <div class="stats-grid stats-grid-bottom" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="stat-box dns" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3);">
+                <div class="stat-number" id="statDNS" style="color: #60a5fa;">0</div>
+                <div class="stat-label">DNS Packets</div>
+            </div>
+            <div class="stat-box arp" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3);">
+                <div class="stat-number" id="statARP" style="color: #fbbf24;">0</div>
+                <div class="stat-label">ARP Packets</div>
+            </div>
+            <div class="stat-box avg">
+                <div class="stat-number" id="statAvg">0</div>
+                <div class="stat-label">Avg Packet Size</div>
+            </div>
+            <div class="stat-box empty" style="visibility: hidden;">
+                <!-- 8th box acts as an invisible placeholder to cleanly maintain the 4-box row layout -->
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ─────────────────────────────────────────
+         SECTION 4 — DATA TABLE
+    ───────────────────────────────────────── -->
+    <div class="card">
+        <div class="card-title">Network Traffic Records</div>
+        <p id="rowCount" class="row-count">No data loaded yet.</p>
+
+        <div class="table-scroll">
+            <table id="trafficTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Time</th>
+                        <th>Source IP</th>
+                        <th>Destination IP</th>
+                        <th>Protocol</th>
+                        <th>Port</th>
+                        <th>Packet Size</th>
+                        <th>Service</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="8" class="placeholder">
+                            Press <strong>Start Monitoring</strong> to load data.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+</div><!-- end .page-wrapper -->
+
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT  
+═══════════════════════════════════════════════ -->
+<script>
+
+    // ─── state ──────────────────────────────────────────────
+    let isRunning      = false;   // mirrors backend monitoring state
+    let refreshTimer   = null;    // setInterval handle for auto-refresh
+    let displayedCount = 0;       // Track how many packets shown
+    let allPackets     = [];      // Store all loaded packets
+
+
+    // ─── helper: escape HTML to prevent XSS ───────────────────
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return "";
+        const div = document.createElement("div");
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+
+
+    // ─── helper: update status bar display ───────────────────
+    function setStatus(running) {
+        const bar  = document.getElementById("statusBar");
+        const text = document.getElementById("statusText");
+        if (running) {
+            bar.className      = "status-bar status-running";
+            text.textContent   = "Running";
+        } else {
+            bar.className      = "status-bar status-stopped";
+            text.textContent   = "Stopped";
+        }
+    }
+
+
+    // ─── helper: get filter params ───────────────────────────
+    function getFilterParams() {
+        return {
+            protocol: document.getElementById("selProtocol").value,
+            srcIP:    document.getElementById("inpSrcIP").value.trim(),
+            dstIP:    document.getElementById("inpDstIP").value.trim(),
+            port:     document.getElementById("inpPort") ? document.getElementById("inpPort").value.trim() : "",
+            minSize:  document.getElementById("inpMinSize") ? document.getElementById("inpMinSize").value.trim() : ""
+        };
+    }
+
+
+    // ─── helper: build URL params ────────────────────────────
+    function buildParams(protocol, srcIP, dstIP, port, minSize) {
+        const params = new URLSearchParams();
+        if (protocol) params.append("protocol",  protocol);
+        if (srcIP)    params.append("source_ip", srcIP);
+        if (dstIP)    params.append("dest_ip",   dstIP);
+        if (port)     params.append("port",      port);
+        if (minSize)  params.append("min_size",  minSize);
+        return params;
+    }
+
+
+    // ─── helper: create table row HTML ───────────────────────
+    function createRowHtml(row, index) {
+        const proto = (row.protocol || "").toLowerCase();
+        return "<td>" + (index + 1) + "</td>" +
+               "<td>" + escapeHtml(row.time) + "</td>" +
+               "<td>" + escapeHtml(row.source_ip) + "</td>" +
+               "<td>" + escapeHtml(row.destination_ip) + "</td>" +
+               "<td><span class='badge badge-" + proto + "'>" + escapeHtml(row.protocol) + "</span></td>" +
+               "<td>" + escapeHtml(row.port) + "</td>" +
+               "<td>" + escapeHtml(row.packet_size) + " B</td>" +
+               "<td>" + escapeHtml(row.service) + "</td>";
+    }
+
+
+    // ─── START MONITORING ────────────────────────────────────
+    function startMonitoring() {
+        fetch("/start", { method: "POST" })
+            .then(r => r.json())
+            .then(() => {
+                isRunning = true;
+                displayedCount = 0;
+                allPackets = [];
+
+                document.getElementById("btnStart").disabled = true;
+                document.getElementById("btnStop").disabled  = false;
+                setStatus(true);
+
+                loadAllData();
+            })
+            .catch(() => { document.getElementById("rowCount").textContent = "Unable to reach server."; });
+    }
+
+
+    // ─── STOP MONITORING ─────────────────────────────────────
+    function stopMonitoring() {
+        fetch("/stop", { method: "POST" })
+            .then(r => r.json())
+            .then(() => {
+                isRunning = false;
+
+                document.getElementById("btnStart").disabled = false;
+                document.getElementById("btnStop").disabled  = true;
+                setStatus(false);
+
+                if (refreshTimer) {
+                    clearInterval(refreshTimer);
+                    refreshTimer = null;
+                }
+            })
+            .catch(() => { document.getElementById("rowCount").textContent = "Unable to reach server."; });
+    }
+
+
+    // ─── LOAD ALL DATA ───────────────────────────────────────
+    function loadAllData() {
+        const { protocol, srcIP, dstIP, port, minSize } = getFilterParams();
+        const params = buildParams(protocol, srcIP, dstIP, port, minSize);
+
+        fetch("/data?" + params.toString())
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById("rowCount").innerHTML = `<span style="color: #ef4444; font-weight: bold;">Error: ${data.error}</span>`;
+                    document.getElementById("tableBody").innerHTML = "";
+                    renderStats({ total_packets: 0, tcp_count: 0, udp_count: 0, icmp_count: 0, dns_count: 0, arp_count: 0, avg_packet_size: 0 });
+                    if (refreshTimer) {
+                        clearInterval(refreshTimer);
+                        refreshTimer = null;
+                    }
+                    isRunning = false;
+                    setStatus(false);
+                    document.getElementById("btnStart").disabled = false;
+                    document.getElementById("btnStop").disabled  = true;
+                    return;
+                }
+                document.getElementById("tableBody").innerHTML = "";
+                document.getElementById("rowCount").textContent = "Loading packets...";
+                allPackets = data.records || [];
+                displayedCount = 0;
+
+                displayPacketsIncrementally();
+            })
+            .catch(() => {
+                document.getElementById("rowCount").textContent = "Failed to fetch data.";
+            });
+    }
+
+
+    // ─── DISPLAY PACKETS INCREMENTALLY ─────────────
+    function displayPacketsIncrementally() {
+        if (!isRunning) return;
+
+        const increment = Math.floor(Math.random() * 3) + 1;
+        const remaining = allPackets.length - displayedCount;
+        const toShow = Math.min(increment, remaining, 150 - displayedCount);
+
+        if (toShow <= 0 || displayedCount >= 150) {
+            renderStats(getCurrentStats());
+            if (!refreshTimer) {
+                refreshTimer = setInterval(refreshStats, 2000);
+            }
+            return;
+        }
+
+        const tbody = document.getElementById("tableBody");
+
+        for (let i = 0; i < toShow && displayedCount < 150; i++) {
+            if (displayedCount >= allPackets.length) break;
+
+            const row = allPackets[displayedCount];
+            const tr = document.createElement("tr");
+            tr.className = "proto-" + (row.protocol || "").toLowerCase();
+            tr.innerHTML = createRowHtml(row, displayedCount);
+
+            tbody.appendChild(tr);
+            displayedCount++;
+        }
+
+        document.getElementById("rowCount").textContent = "Showing " + displayedCount + " packet(s) - Max: 150";
+
+        updateStatsFromDisplayed();
+
+        const delay = Math.floor(Math.random() * 1500) + 500;
+        setTimeout(displayPacketsIncrementally, delay);
+    }
+
+
+    // ─── REFRESH STATS ONLY ────────
+    function refreshStats() {
+        if (!isRunning) return;
+
+        const { protocol, srcIP, dstIP, port, minSize } = getFilterParams();
+        const params = buildParams(protocol, srcIP, dstIP, port, minSize);
+
+        fetch("/data?" + params.toString())
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById("rowCount").innerHTML = `<span style="color: #ef4444; font-weight: bold;">Error: ${data.error}</span>`;
+                    document.getElementById("tableBody").innerHTML = "";
+                    renderStats({ total_packets: 0, tcp_count: 0, udp_count: 0, icmp_count: 0, dns_count: 0, arp_count: 0, avg_packet_size: 0 });
+                    if (refreshTimer) {
+                        clearInterval(refreshTimer);
+                        refreshTimer = null;
+                    }
+                    isRunning = false;
+                    setStatus(false);
+                    document.getElementById("btnStart").disabled = false;
+                    document.getElementById("btnStop").disabled  = true;
+                    return;
+                }
+                renderStats(data.stats);
+            })
+            .catch(() => {});
+    }
+
+
+    // ─── UPDATE STATS FROM DISPLAYED PACKETS ─────────────────
+    function updateStatsFromDisplayed() {
+        const displayed = allPackets.slice(0, displayedCount);
+
+        const stats = {
+            total_packets: displayedCount,
+            tcp_count: 0, udp_count: 0, icmp_count: 0, dns_count: 0, arp_count: 0,
+            avg_packet_size: 0
+        };
+
+        let totalSize = 0;
+        displayed.forEach(p => {
+            const proto = (p.protocol || "").toUpperCase();
+            if (proto === "TCP") stats.tcp_count++;
+            else if (proto === "UDP") stats.udp_count++;
+            else if (proto === "ICMP") stats.icmp_count++;
+            else if (proto === "DNS") stats.dns_count++;
+            else if (proto === "ARP") stats.arp_count++;
+            totalSize += parseInt(p.packet_size || 0);
+        });
+
+        stats.avg_packet_size = displayedCount > 0 ? Math.round(totalSize / displayedCount) : 0;
+
+        renderStats(stats);
+    }
+
+
+    // ─── GET CURRENT STATS ─────────────────────
+    function getCurrentStats() {
+        return {
+            total_packets: displayedCount,
+            tcp_count: 0, udp_count: 0, icmp_count: 0, dns_count: 0, arp_count: 0,
+            avg_packet_size: 0
+        };
+    }
+
+
+    // ─── GENERATE NEW AI DATA ────────────────────────────────
+    function generateNewData() {
+        const btn = document.getElementById("btnGenerate");
+        btn.disabled = true;
+        btn.textContent = "Generating...";
+
+        fetch("/generate", { method: "POST" })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === "generated") {
+                    document.getElementById("statTotal").textContent = data.stats.total_packets;
+                    document.getElementById("statTCP").textContent = data.stats.tcp_count;
+                    document.getElementById("statUDP").textContent = data.stats.udp_count;
+                    document.getElementById("statICMP").textContent = data.stats.icmp_count;
+                    if (document.getElementById("statDNS")) document.getElementById("statDNS").textContent = data.stats.dns_count || 0;
+                    if (document.getElementById("statARP")) document.getElementById("statARP").textContent = data.stats.arp_count || 0;
+                    document.getElementById("statAvg").textContent = data.stats.avg_packet_size;
+
+                    if (isRunning) {
+                        displayedCount = 0;
+                        allPackets = [];
+                        document.getElementById("tableBody").innerHTML = "";
+                        loadAllData();
+                    }
+                } else {
+                    document.getElementById("rowCount").textContent = "Failed to generate data.";
+                }
+                btn.disabled = false;
+                btn.textContent = "Generate New Data";
+            })
+            .catch(() => {
+                document.getElementById("rowCount").textContent = "Unable to reach server.";
+                btn.disabled = false;
+                btn.textContent = "Generate New Data";
+            });
+    }
+
+
+    // ─── APPLY FILTER ────────
+    function applyFilter() {
+        const { protocol, srcIP, dstIP, port, minSize } = getFilterParams();
+
+        document.getElementById("rowCount").textContent = "Filtering...";
+
+        const params = buildParams(protocol, srcIP, dstIP, port, minSize);
+
+        fetch("/data?" + params.toString())
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById("rowCount").innerHTML = `<span style="color: #ef4444; font-weight: bold;">Error: ${data.error}</span>`;
+                    document.getElementById("tableBody").innerHTML = "";
+                    renderStats({ total_packets: 0, tcp_count: 0, udp_count: 0, icmp_count: 0, dns_count: 0, arp_count: 0, avg_packet_size: 0 });
+                    if (refreshTimer) {
+                        clearInterval(refreshTimer);
+                        refreshTimer = null;
+                    }
+                    isRunning = false;
+                    setStatus(false);
+                    document.getElementById("btnStart").disabled = false;
+                    document.getElementById("btnStop").disabled  = true;
+                    return; // Do NOT update table
+                }
+
+                document.getElementById("tableBody").innerHTML = "";
+                const packets = data.records || [];
+
+                if (packets.length === 0) {
+                    document.getElementById("tableBody").innerHTML = '<tr><td colspan="8" class="placeholder">No packets match the filter.</td></tr>';
+                    document.getElementById("rowCount").textContent = "0 packets found.";
+                    renderStats({ total_packets: 0, tcp_count: 0, udp_count: 0, icmp_count: 0, avg_packet_size: 0 });
+                    return;
+                }
+
+                const tbody = document.getElementById("tableBody");
+                packets.forEach((row, index) => {
+                    const tr = document.createElement("tr");
+                    tr.className = "proto-" + (row.protocol || "").toLowerCase();
+                    tr.innerHTML = createRowHtml(row, index);
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById("rowCount").textContent = "Showing " + packets.length + " filtered packet(s).";
+
+                renderStats(data.stats);
+
+                allPackets = packets;
+                displayedCount = packets.length;
+            })
+            .catch(() => {
+                document.getElementById("rowCount").textContent = "Failed to apply filter.";
+            });
+    }
+
+
+    // ─── RESET FILTER ──
+    function resetFilter() {
+        document.getElementById("selProtocol").value = "";
+        document.getElementById("inpSrcIP").value    = "";
+        document.getElementById("inpDstIP").value    = "";
+        if (document.getElementById("inpPort")) document.getElementById("inpPort").value = "";
+        if (document.getElementById("inpMinSize")) document.getElementById("inpMinSize").value = "";
+
+        if (isRunning) {
+            displayedCount = 0;
+            allPackets = [];
+            document.getElementById("tableBody").innerHTML = "";
+            loadAllData();
+        } else {
+            document.getElementById("tableBody").innerHTML = '<tr><td colspan="8" class="placeholder">Press <strong>Start Monitoring</strong> to load data.</td></tr>';
+            document.getElementById("rowCount").textContent = "No data loaded yet.";
+            renderStats({ total_packets: 0, tcp_count: 0, udp_count: 0, icmp_count: 0, avg_packet_size: 0 });
+        }
+    }
+
+
+    // ─── RENDER STATISTICS ───────────────────────────────────
+    function renderStats(stats) {
+        document.getElementById("statTotal").textContent = stats.total_packets || 0;
+        document.getElementById("statTCP").textContent   = stats.tcp_count || 0;
+        document.getElementById("statUDP").textContent   = stats.udp_count || 0;
+        document.getElementById("statICMP").textContent  = stats.icmp_count || 0;
+        if (document.getElementById("statDNS")) document.getElementById("statDNS").textContent = stats.dns_count || 0;
+        if (document.getElementById("statARP")) document.getElementById("statARP").textContent = stats.arp_count || 0;
+        document.getElementById("statAvg").textContent   = stats.avg_packet_size || 0;
+    }
+
+</script>
+
+</body>
+</html>
